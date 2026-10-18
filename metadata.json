@@ -1,0 +1,6 @@
+{
+  "name": "DiabGo",
+  "description": "Aplicação pessoal de gestão e cálculo de insulina para diabetes tipo 1, com histórico, gráficos diários, relatórios e funcionamento 100% offline.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
