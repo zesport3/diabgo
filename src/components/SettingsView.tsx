@@ -355,8 +355,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
+                    inputMode="decimal"
                     step="0.5"
                     min="1"
+                    autoComplete="off"
                     value={currentConfig.allDayValue}
                     onChange={(e) =>
                       handleAllDayValueChange(activeParamTab, parseFloat(e.target.value) || 0)
@@ -393,8 +395,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </span>
                     <input
                       type="number"
+                      inputMode="decimal"
                       step="0.5"
                       min="1"
+                      autoComplete="off"
                       value={currentConfig.mealValues[meal] || 0}
                       onChange={(e) =>
                         handleMealValueChange(
@@ -459,8 +463,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <div className="flex items-center gap-1.5">
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="0.5"
                           min="1"
+                          autoComplete="off"
                           value={slot.value}
                           onChange={(e) =>
                             handleUpdateTimeSlot(
@@ -501,9 +507,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="flex items-center gap-2">
                 <input
                   type="number"
+                  inputMode="decimal"
                   min="2"
                   max="6"
                   step="0.5"
+                  autoComplete="off"
                   value={settings.insulinDurationHours}
                   onChange={(e) => {
                     const val = parseFloat(e.target.value) || 3;

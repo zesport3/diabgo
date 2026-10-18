@@ -488,6 +488,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                 <input
                   type="number"
                   inputMode="numeric"
+                  pattern="[0-9]*"
+                  step="1"
+                  autoComplete="off"
                   placeholder="Ex: 120"
                   min="1"
                   max="400"
@@ -510,6 +513,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                 <input
                   type="number"
                   inputMode="decimal"
+                  step="any"
+                  autoComplete="off"
                   placeholder="0"
                   min="0"
                   max="700"
