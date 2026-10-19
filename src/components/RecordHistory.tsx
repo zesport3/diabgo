@@ -160,18 +160,6 @@ export const RecordHistory: React.FC<RecordHistoryProps> = ({
                   </span>
                 </div>
               </div>
-
-              {/* Status indicator linking day to affixed chart */}
-              {isSelectedDay ? (
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                  No gráfico
-                </span>
-              ) : (
-                <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 hover:text-cyan-500 transition">
-                  Ver gráfico
-                </span>
-              )}
             </div>
 
             {/* List of records */}

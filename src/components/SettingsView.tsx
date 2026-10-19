@@ -359,9 +359,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     step="0.5"
                     min="1"
                     autoComplete="off"
-                    value={currentConfig.allDayValue}
+                    placeholder="—"
+                    value={currentConfig.allDayValue === 0 ? '' : currentConfig.allDayValue}
                     onChange={(e) =>
-                      handleAllDayValueChange(activeParamTab, parseFloat(e.target.value) || 0)
+                      handleAllDayValueChange(
+                        activeParamTab,
+                        e.target.value === '' ? 0 : parseFloat(e.target.value) || 0
+                      )
                     }
                     className="w-32 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono text-base font-bold focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   />
@@ -399,12 +403,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       step="0.5"
                       min="1"
                       autoComplete="off"
-                      value={currentConfig.mealValues[meal] || 0}
+                      placeholder="—"
+                      value={currentConfig.mealValues[meal] === 0 ? '' : (currentConfig.mealValues[meal] ?? '')}
                       onChange={(e) =>
                         handleMealValueChange(
                           activeParamTab,
                           meal,
-                          parseFloat(e.target.value) || 0
+                          e.target.value === '' ? 0 : parseFloat(e.target.value) || 0
                         )
                       }
                       className="w-24 px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono font-bold text-center"
@@ -467,13 +472,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           step="0.5"
                           min="1"
                           autoComplete="off"
-                          value={slot.value}
+                          placeholder="—"
+                          value={slot.value === 0 ? '' : slot.value}
                           onChange={(e) =>
                             handleUpdateTimeSlot(
                               activeParamTab,
                               slot.id,
                               'value',
-                              parseFloat(e.target.value) || 0
+                              e.target.value === '' ? 0 : parseFloat(e.target.value) || 0
                             )
                           }
                           className="w-16 px-1.5 py-1 rounded border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-mono font-bold text-center text-xs"

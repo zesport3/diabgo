@@ -60,7 +60,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
     initialRecord?.glucose !== undefined ? String(initialRecord.glucose) : ''
   );
   const [carbs, setCarbs] = useState<string>(
-    initialRecord ? String(initialRecord.carbs) : '0'
+    initialRecord && initialRecord.carbs > 0 ? String(initialRecord.carbs) : ''
   );
   const [isCorrectionOnly, setIsCorrectionOnly] = useState<boolean>(
     initialRecord
@@ -136,7 +136,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
     const num = parseFloat(val);
     // Se o utilizador alterar para >= 70 ou limpar e os hidratos foram definidos automaticamente por hipo:
     if (autoSetHypoCarbs && (isNaN(num) || num >= 70)) {
-      setCarbs('0');
+      setCarbs('');
       setAutoSetHypoCarbs(false);
       setIsGlucoseBlurred(false);
     }
@@ -172,8 +172,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
     setValidationError(null);
     setMissingParams([]);
 
-    let numCarbs = isCorrectionOnly ? 0 : parseFloat(carbs);
-    if (!isCorrectionOnly && (isNaN(numCarbs) || numCarbs < 0)) {
+    let numCarbs = isCorrectionOnly ? 0 : (carbs.trim() === '' ? 0 : parseFloat(carbs));
+    if (!isCorrectionOnly && carbs.trim() !== '' && (isNaN(numCarbs) || numCarbs < 0)) {
       setValidationError('Por favor introduz uma quantidade válida de hidratos de carbono (≥ 0 g).');
       return;
     }
@@ -207,6 +207,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
       }
     } else if (isCorrectionOnly) {
       setValidationError('Por favor introduz o valor da glicemia para calcular a dose de correção.');
+      return;
+    } else if (carbs.trim() === '') {
+      setValidationError('Por favor introduz o valor da glicemia ou a quantidade de hidratos de carbono.');
       return;
     }
 
@@ -245,8 +248,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
     e.preventDefault();
     setValidationError(null);
 
-    let numCarbs = isCorrectionOnly ? 0 : parseFloat(carbs);
-    if (!isCorrectionOnly && (isNaN(numCarbs) || numCarbs < 0)) {
+    let numCarbs = isCorrectionOnly ? 0 : (carbs.trim() === '' ? 0 : parseFloat(carbs));
+    if (!isCorrectionOnly && carbs.trim() !== '' && (isNaN(numCarbs) || numCarbs < 0)) {
       setValidationError('Verifica os hidratos de carbono (não pode ser negativo).');
       return;
     }
@@ -278,6 +281,12 @@ export const RecordModal: React.FC<RecordModalProps> = ({
           numCarbs = 12;
         }
       }
+    } else if (isCorrectionOnly) {
+      setValidationError('Por favor introduz a glicemia para dose de correção.');
+      return;
+    } else if (carbs.trim() === '') {
+      setValidationError('Por favor introduz pelo menos o valor da glicemia ou os hidratos de carbono.');
+      return;
     }
 
     const [h, m] = time.split(':').map(Number);
@@ -461,7 +470,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                 const next = !isCorrectionOnly;
                 setIsCorrectionOnly(next);
                 if (next) {
-                  setCarbs('0');
+                  setCarbs('');
                 }
                 setCalcPerformed(false);
               }}
@@ -515,11 +524,11 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                   inputMode="decimal"
                   step="any"
                   autoComplete="off"
-                  placeholder="0"
+                  placeholder={isCorrectionOnly ? '0g (apenas correção)' : 'Ex: 40'}
                   min="0"
                   max="700"
                   disabled={isCorrectionOnly}
-                  value={isCorrectionOnly ? '0' : carbs}
+                  value={isCorrectionOnly ? '' : carbs}
                   onChange={(e) => handleCarbsChange(e.target.value)}
                   className={`w-full px-3 py-2.5 rounded-xl border font-mono text-base transition ${
                     isCorrectionOnly
