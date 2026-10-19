@@ -16,6 +16,7 @@ import {
   Clock,
   HelpCircle,
   Database,
+  User,
 } from 'lucide-react';
 import {
   Settings,
@@ -809,8 +810,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               Ver Guia de Instalação Passo a Passo
             </button>
           </div>
+
+          {/* Autoria / Sobre */}
+          <div className="p-4 rounded-2xl bg-white dark:bg-[#0F1B30] border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/50 border border-cyan-200/60 dark:border-cyan-800/60 flex items-center justify-center shrink-0 text-cyan-600 dark:text-cyan-400">
+              <User className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Sobre a Aplicação
+              </p>
+              <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5">
+                Esta app foi criada por <strong className="font-semibold text-slate-900 dark:text-white">José Miguel Fernandes Nave</strong>.
+              </p>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* Footer Indication: Always visible at bottom of Settings */}
+      <div className="pt-3 pb-1 text-center border-t border-slate-200/60 dark:border-slate-800/60">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          App criada por <strong className="font-semibold text-slate-700 dark:text-slate-200">José Miguel Fernandes Nave</strong>
+        </p>
+      </div>
     </div>
   );
 };
