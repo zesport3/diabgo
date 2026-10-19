@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, Utensils, Syringe } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, X } from 'lucide-react';
 import { DiabetesRecord, MEAL_LABELS } from '../types';
 import { getGlucoseRangeBadge } from '../utils/reports';
 
@@ -17,6 +17,7 @@ export const GlucoseChart: React.FC<GlucoseChartProps> = ({
   onOpenNewRecord,
 }) => {
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
 
   // Filter records for the selected date
   const dayRecords = records
@@ -57,11 +58,11 @@ export const GlucoseChart: React.FC<GlucoseChartProps> = ({
 
   // SVG Chart Dimensions
   const chartWidth = 360;
-  const chartHeight = 190;
+  const chartHeight = 175;
   const padLeft = 36;
   const padRight = 14;
-  const padTop = 18;
-  const padBottom = 26;
+  const padTop = 16;
+  const padBottom = 24;
 
   const innerWidth = chartWidth - padLeft - padRight;
   const innerHeight = chartHeight - padTop - padBottom;
@@ -107,21 +108,46 @@ export const GlucoseChart: React.FC<GlucoseChartProps> = ({
   };
 
   return (
-    <section className="bg-white dark:bg-[#0F1B30] rounded-3xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-800 transition-colors">
+    <section className="bg-white dark:bg-[#0F1B30] rounded-2xl sm:rounded-3xl p-3 sm:p-4 shadow-sm border border-slate-200/80 dark:border-slate-800 transition-colors">
       {/* Chart Top Header & Day Navigation */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2.5">
         {/* Date Selector Navigation */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => navigateDay(-1)}
             aria-label="Dia anterior"
             className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-90"
+            title="Dia anterior"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
 
-          <div className="text-center min-w-[120px]">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center justify-center gap-1.5">
+          {/* Hidden native date input triggered by clicking date label */}
+          <input
+            type="date"
+            ref={dateInputRef}
+            value={selectedDate}
+            max={todayStr}
+            onChange={(e) => {
+              if (e.target.value) onSelectDate(e.target.value);
+            }}
+            className="sr-only"
+            tabIndex={-1}
+          />
+
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                dateInputRef.current?.showPicker();
+              } catch {
+                dateInputRef.current?.focus();
+              }
+            }}
+            className="text-center min-w-[110px] px-2 py-0.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/60 transition group cursor-pointer"
+            title="Toca para escolher outro dia no calendário"
+          >
+            <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center justify-center gap-1.5 group-hover:text-cyan-500 transition">
               <Calendar className="w-3.5 h-3.5 text-cyan-500" />
               {formatDayTitle(selectedDate)}
             </h2>
@@ -132,7 +158,7 @@ export const GlucoseChart: React.FC<GlucoseChartProps> = ({
                 year: 'numeric',
               })}
             </p>
-          </div>
+          </button>
 
           <button
             onClick={() => navigateDay(1)}
@@ -141,6 +167,7 @@ export const GlucoseChart: React.FC<GlucoseChartProps> = ({
             className={`p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-90 ${
               isToday ? 'opacity-30 cursor-not-allowed' : ''
             }`}
+            title="Dia seguinte"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -149,6 +176,7 @@ export const GlucoseChart: React.FC<GlucoseChartProps> = ({
             <button
               onClick={() => onSelectDate(todayStr)}
               className="ml-1 text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950/60 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 transition"
+              title="Voltar para Hoje"
             >
               Hoje
             </button>
@@ -186,7 +214,7 @@ export const GlucoseChart: React.FC<GlucoseChartProps> = ({
       </div>
 
       {/* Chart SVG */}
-      <div className="relative w-full aspect-[360/190] select-none">
+      <div className="relative w-full aspect-[360/175] select-none">
         <svg
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
           className="w-full h-full overflow-visible"
@@ -400,14 +428,24 @@ export const GlucoseChart: React.FC<GlucoseChartProps> = ({
                 • {MEAL_LABELS[activePoint.meal] || activePoint.meal}
               </span>
             </div>
-            {(() => {
-              const badge = getGlucoseRangeBadge(activePoint.glucose);
-              return (
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badge.badgeClass}`}>
-                  {badge.label}
-                </span>
-              );
-            })()}
+            <div className="flex items-center gap-1.5">
+              {(() => {
+                const badge = getGlucoseRangeBadge(activePoint.glucose);
+                return (
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badge.badgeClass}`}>
+                    {badge.label}
+                  </span>
+                );
+              })()}
+              <button
+                type="button"
+                onClick={() => setSelectedRecordId(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition"
+                title="Fechar detalhes"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-2 text-center">

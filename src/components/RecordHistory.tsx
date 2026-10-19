@@ -12,12 +12,16 @@ import { getGlucoseRangeBadge } from '../utils/reports';
 
 interface RecordHistoryProps {
   records: DiabetesRecord[];
+  selectedDate?: string;
+  onSelectDate?: (date: string) => void;
   onEditRecord: (record: DiabetesRecord) => void;
   onDeleteRecord: (id: string) => void;
 }
 
 export const RecordHistory: React.FC<RecordHistoryProps> = ({
   records,
+  selectedDate,
+  onSelectDate,
   onEditRecord,
   onDeleteRecord,
 }) => {
@@ -109,16 +113,37 @@ export const RecordHistory: React.FC<RecordHistoryProps> = ({
           0
         );
 
+        const isSelectedDay = dateStr === selectedDate;
+
         return (
           <div
             key={dateStr}
-            className="rounded-2xl bg-white dark:bg-[#0F1B30] border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs transition-colors"
+            id={`history-day-${dateStr}`}
+            data-history-date={dateStr}
+            className={`rounded-2xl bg-white dark:bg-[#0F1B30] border overflow-hidden shadow-xs transition-all duration-200 ${
+              isSelectedDay
+                ? 'border-cyan-500/80 ring-2 ring-cyan-500/25 shadow-md shadow-cyan-500/5'
+                : 'border-slate-200/80 dark:border-slate-800'
+            }`}
           >
-            {/* Day Header Banner (Always open with all records displayed) */}
-            <div className="w-full px-4 py-2.5 bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
+            {/* Day Header Banner (Clicking selects day on chart) */}
+            <div
+              onClick={() => onSelectDate?.(dateStr)}
+              className={`w-full px-4 py-2.5 border-b flex items-center justify-between cursor-pointer transition select-none ${
+                isSelectedDay
+                  ? 'bg-cyan-50/90 dark:bg-cyan-950/40 border-cyan-500/30'
+                  : 'bg-slate-50/80 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-800/60 hover:bg-slate-100/70 dark:hover:bg-slate-800/80'
+              }`}
+            >
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                  <span
+                    className={`text-xs font-bold ${
+                      isSelectedDay
+                        ? 'text-cyan-700 dark:text-cyan-400'
+                        : 'text-slate-900 dark:text-white'
+                    }`}
+                  >
                     {header.main}
                   </span>
                   <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
@@ -135,6 +160,18 @@ export const RecordHistory: React.FC<RecordHistoryProps> = ({
                   </span>
                 </div>
               </div>
+
+              {/* Status indicator linking day to affixed chart */}
+              {isSelectedDay ? (
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                  No gráfico
+                </span>
+              ) : (
+                <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 hover:text-cyan-500 transition">
+                  Ver gráfico
+                </span>
+              )}
             </div>
 
             {/* List of records */}

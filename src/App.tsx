@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { BottomNav, TabType } from './components/BottomNav';
 import { GlucoseChart } from './components/GlucoseChart';
@@ -93,6 +93,90 @@ export default function App() {
     };
   }, []);
 
+  // History scroll container ref & scroll tracking
+  const historyScrollRef = useRef<HTMLDivElement | null>(null);
+  const isProgrammaticScrolling = useRef<boolean>(false);
+  const programmaticTimer = useRef<any>(null);
+  const scrollRafId = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (scrollRafId.current) cancelAnimationFrame(scrollRafId.current);
+      if (programmaticTimer.current) clearTimeout(programmaticTimer.current);
+    };
+  }, []);
+
+  // Handler when date is changed from the chart navigation (arrows/calendar/today) or clicking day card
+  const handleSelectDateFromChart = (newDate: string) => {
+    setSelectedDate(newDate);
+
+    // Smooth scroll the history container to the selected day's card
+    const container = historyScrollRef.current;
+    if (!container) return;
+
+    const targetEl = container.querySelector<HTMLElement>(`[data-history-date="${newDate}"]`);
+    if (targetEl) {
+      isProgrammaticScrolling.current = true;
+      if (programmaticTimer.current) clearTimeout(programmaticTimer.current);
+
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      programmaticTimer.current = setTimeout(() => {
+        isProgrammaticScrolling.current = false;
+      }, 700);
+    }
+  };
+
+  // Scroll listener on history: as user scrolls through previous days, the fixed chart follows the visible day
+  const handleHistoryScroll = () => {
+    if (isProgrammaticScrolling.current) return;
+    if (scrollRafId.current) cancelAnimationFrame(scrollRafId.current);
+
+    scrollRafId.current = requestAnimationFrame(() => {
+      const container = historyScrollRef.current;
+      if (!container) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const dayElements = container.querySelectorAll<HTMLElement>('[data-history-date]');
+      if (dayElements.length === 0) return;
+
+      // Scrolled to top: select the very first day
+      if (container.scrollTop < 25) {
+        const firstDate = dayElements[0].getAttribute('data-history-date');
+        if (firstDate && firstDate !== selectedDate) {
+          setSelectedDate(firstDate);
+        }
+        return;
+      }
+
+      // Scrolled near bottom: select the last day
+      if (container.scrollHeight - container.scrollTop - container.clientHeight < 40) {
+        const lastDate = dayElements[dayElements.length - 1].getAttribute('data-history-date');
+        if (lastDate && lastDate !== selectedDate) {
+          setSelectedDate(lastDate);
+        }
+        return;
+      }
+
+      // Middle: find the section intersecting near the top of the history list
+      const thresholdY = containerRect.top + 75;
+      let matchingDate: string | null = null;
+
+      for (let i = 0; i < dayElements.length; i++) {
+        const el = dayElements[i];
+        const rect = el.getBoundingClientRect();
+        if (rect.top <= thresholdY && rect.bottom > thresholdY - 40) {
+          matchingDate = el.getAttribute('data-history-date');
+          break;
+        }
+      }
+
+      if (matchingDate && matchingDate !== selectedDate) {
+        setSelectedDate(matchingDate);
+      }
+    });
+  };
+
   // Handler to save/edit a record
   const handleSaveRecord = async (savedRecord: DiabetesRecord) => {
     await storage.saveRecord(savedRecord);
@@ -183,7 +267,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#070C16] text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-cyan-500 selection:text-white">
+    <div className="h-[100dvh] min-h-[100dvh] bg-slate-50 dark:bg-[#070C16] text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden transition-colors selection:bg-cyan-500 selection:text-white">
       {/* 1. Fixed Header (DiabGo) */}
       <Header
         themeMode={themeMode}
@@ -194,49 +278,65 @@ export default function App() {
         canInstall={!isInstalled && (isInstallable || isIOS)}
       />
 
-      {/* Main Scrollable Content Area */}
-      <main className="flex-1 w-full max-w-md mx-auto px-4 pt-3 pb-24 overflow-x-hidden">
+      {/* Main Content Area */}
+      <main className="flex-1 w-full max-w-md mx-auto flex flex-col min-h-0 overflow-hidden">
         {/* Tab 1: Início (Home) */}
         {activeTab === 'home' && (
-          <div className="space-y-4">
-            {/* 2. Gráfico diário de glicemia com botão circular «+» na zona superior direita */}
-            <GlucoseChart
-              records={records}
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-              onOpenNewRecord={() => {
-                setEditingRecord(null);
-                setIsRecordModalOpen(true);
-              }}
-            />
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* 2. Gráfico diário de glicemia AFIXADO (Pinned at the top) */}
+            <div className="shrink-0 px-4 pt-2 pb-1.5">
+              <GlucoseChart
+                records={records}
+                selectedDate={selectedDate}
+                onSelectDate={handleSelectDateFromChart}
+                onOpenNewRecord={() => {
+                  setEditingRecord(null);
+                  setIsRecordModalOpen(true);
+                }}
+              />
+            </div>
 
-            {/* 4. Histórico organizado por dias */}
-            <RecordHistory
-              records={records}
-              onEditRecord={(rec) => {
-                setEditingRecord(rec);
-                setIsRecordModalOpen(true);
-              }}
-              onDeleteRecord={handleDeleteRecord}
-            />
+            {/* 4. Histórico organizado por dias (SÓ MEXE O HISTÓRICO - scrollable area) */}
+            <div
+              ref={historyScrollRef}
+              onScroll={handleHistoryScroll}
+              className="flex-1 min-h-0 overflow-y-auto px-4 pb-20 pt-1 space-y-3"
+            >
+              <RecordHistory
+                records={records}
+                selectedDate={selectedDate}
+                onSelectDate={handleSelectDateFromChart}
+                onEditRecord={(rec) => {
+                  setEditingRecord(rec);
+                  setIsRecordModalOpen(true);
+                }}
+                onDeleteRecord={handleDeleteRecord}
+              />
+            </div>
           </div>
         )}
 
         {/* Tab 2: Relatórios */}
-        {activeTab === 'reports' && <ReportsView records={records} />}
+        {activeTab === 'reports' && (
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-24">
+            <ReportsView records={records} />
+          </div>
+        )}
 
         {/* Tab 3: Configurações */}
         {activeTab === 'settings' && (
-          <SettingsView
-            settings={settings}
-            onUpdateSettings={handleUpdateSettings}
-            themeMode={themeMode}
-            onChangeTheme={handleSelectThemeMode}
-            records={records}
-            onReloadRecords={setRecords}
-            onClearAllData={handleClearAllData}
-            onOpenInstallGuide={() => setIsInstallModalOpen(true)}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-24">
+            <SettingsView
+              settings={settings}
+              onUpdateSettings={handleUpdateSettings}
+              themeMode={themeMode}
+              onChangeTheme={handleSelectThemeMode}
+              records={records}
+              onReloadRecords={setRecords}
+              onClearAllData={handleClearAllData}
+              onOpenInstallGuide={() => setIsInstallModalOpen(true)}
+            />
+          </div>
         )}
       </main>
 
