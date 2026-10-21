@@ -60,32 +60,44 @@ export function resolveParameter(
 }
 
 /**
+ * Safely parses record timestamp from date & time or fallback timestamp
+ */
+export function getRecordTimestamp(r: { timestamp: number; date?: string; time?: string }): number {
+  if (r.date && r.time) {
+    const dateParts = r.date.split('-').map(Number);
+    const timeParts = r.time.split(':').map(Number);
+    if (dateParts.length === 3 && timeParts.length >= 2) {
+      const [year, month, day] = dateParts;
+      const [hour, minute] = timeParts;
+      return new Date(year, month - 1, day, hour || 0, minute || 0, 0, 0).getTime();
+    }
+  }
+  return r.timestamp;
+}
+
+/**
  * Calculates eligible active insulin from previous records based on DiabGo's specific rule:
- * ONLY correction components from previous records within the active window (default 3 hours)
- * are eligible for deduction. Carb insulin is explicitly excluded from the discount.
+ * Active insulin is calculated strictly from previous correction insulin doses and decays
+ * proportionally over the active insulin duration (default 3 hours).
+ *
+ * Example (with 3-hour window and 9 U correction):
+ * - After 0 hours: active insulin = 9 U (100%)
+ * - After 1 hour:  active insulin = 6 U (66.7%)
+ * - After 2 hours: active insulin = 3 U (33.3%)
+ * - After 3 hours: active insulin = 0 U (0%)
  */
 export function calculateEligibleActiveInsulin(
   targetTimestamp: number,
   records: DiabetesRecord[],
   durationHours: number = 3,
   currentRecordId?: string
-): { totalActive: number; details: Array<{ recordId: string; time: string; originalCorrection: number; activeRemaining: number }> } {
-  const windowMs = durationHours * 3600 * 1000;
+): { totalActive: number; details: Array<{ recordId: string; time: string; originalCorrection: number; activeRemaining: number; elapsedHours: number }> } {
+  const effectiveDuration = durationHours && durationHours > 0 ? durationHours : 3;
+  const totalDurationMinutes = effectiveDuration * 60;
   let totalActive = 0;
-  const details: Array<{ recordId: string; time: string; originalCorrection: number; activeRemaining: number }> = [];
+  const details: Array<{ recordId: string; time: string; originalCorrection: number; activeRemaining: number; elapsedHours: number }> = [];
 
-  // Helper to parse record timestamp consistently
-  const getRecordTimestamp = (r: DiabetesRecord): number => {
-    if (r.date && r.time) {
-      const [rh, rm] = r.time.split(':').map(Number);
-      const d = new Date(r.date + 'T12:00:00');
-      d.setHours(rh || 0, rm || 0, 0, 0);
-      return d.getTime();
-    }
-    return r.timestamp;
-  };
-
-  // Find all valid prior records (chronologically up to targetTimestamp + tolerance)
+  // Find all valid prior records (chronologically up to targetTimestamp + 1 min tolerance)
   const priorRecords = records
     .filter((r) => {
       if (currentRecordId && r.id === currentRecordId) return false;
@@ -96,43 +108,25 @@ export function calculateEligibleActiveInsulin(
     })
     .sort((a, b) => getRecordTimestamp(b) - getRecordTimestamp(a));
 
-  // Check if the immediately preceding record is a correction-only record
-  // (Regra: Quando faço um registo de apenas de correção tem de ser incluída no registo seguinte na parte de ativa)
-  const immediatePrior = priorRecords[0];
-  let immediateCorrectionOnlyDose = 0;
-  let immediatePriorRecordId: string | null = null;
-
-  if (immediatePrior) {
-    const isImmediateCorrectionOnly =
-      immediatePrior.isCorrectionOnly ||
-      (immediatePrior.carbs === 0 &&
-        ((immediatePrior.correctionInsulin ?? 0) > 0 ||
-          (immediatePrior.administeredDose ?? immediatePrior.calculatedDose ?? 0) > 0));
-
-    if (isImmediateCorrectionOnly) {
-      immediateCorrectionOnlyDose =
-        immediatePrior.correctionInsulin ||
-        immediatePrior.administeredDose ||
-        immediatePrior.calculatedDose ||
-        0;
-      immediatePriorRecordId = immediatePrior.id;
-    }
-  }
-
-  // Iterate over all prior records to calculate eligible active insulin
+  // Iterate over prior records to calculate proportional active correction insulin
   for (const r of priorRecords) {
-    const isCorrectionRecord =
+    const isCorrectionOnly =
       r.isCorrectionOnly ||
-      (r.correctionInsulin !== undefined && r.correctionInsulin > 0) ||
-      (r.carbs === 0 && ((r.administeredDose ?? r.calculatedDose ?? 0) > 0));
+      (r.carbs === 0 && ((r.correctionInsulin ?? 0) > 0 || (r.administeredDose ?? r.calculatedDose ?? 0) > 0));
 
-    if (!isCorrectionRecord) continue;
-
-    let administeredCorrection = r.correctionInsulin || 0;
-    if (administeredCorrection <= 0 && isCorrectionRecord) {
-      administeredCorrection = r.administeredDose !== undefined ? r.administeredDose : r.calculatedDose;
-    } else if (r.administeredDose !== undefined && r.administeredDose > 0 && r.correctionInsulin > 0) {
-      administeredCorrection = Math.min(r.correctionInsulin, r.administeredDose);
+    let administeredCorrection = 0;
+    if (isCorrectionOnly) {
+      administeredCorrection =
+        r.correctionInsulin ||
+        r.administeredDose ||
+        r.calculatedDose ||
+        0;
+    } else if (r.correctionInsulin && r.correctionInsulin > 0) {
+      if (r.administeredDose !== undefined && r.administeredDose > 0) {
+        administeredCorrection = Math.min(r.correctionInsulin, r.administeredDose);
+      } else {
+        administeredCorrection = r.correctionInsulin;
+      }
     }
 
     if (administeredCorrection <= 0) continue;
@@ -140,35 +134,22 @@ export function calculateEligibleActiveInsulin(
     const rTime = getRecordTimestamp(r);
     const elapsedMs = targetTimestamp - rTime;
     const elapsedMinutes = Math.max(0, elapsedMs / 60000);
-    const totalDurationMinutes = durationHours * 60;
+    const elapsedHours = Math.round((elapsedMinutes / 60) * 10) / 10;
 
-    // If this is the immediate prior correction-only record, it is guaranteed to be included in the next record
-    if (r.id === immediatePriorRecordId && immediateCorrectionOnlyDose > 0) {
-      // Use the full correction dose (or remaining decay if somehow higher)
-      const decayFactor = Math.max(0, 1 - elapsedMinutes / totalDurationMinutes);
-      const remaining = Math.max(immediateCorrectionOnlyDose, administeredCorrection * decayFactor);
-      totalActive += remaining;
-      details.push({
-        recordId: r.id,
-        time: r.time,
-        originalCorrection: immediateCorrectionOnlyDose,
-        activeRemaining: Math.round(remaining * 100) / 100,
-      });
-      continue;
-    }
-
-    // Standard linear decay for other correction records within the active duration window
-    if (elapsedMs >= -60000 && elapsedMinutes <= totalDurationMinutes) {
+    // Proportional decay across the duration window (default 3 hours)
+    if (elapsedMinutes < totalDurationMinutes) {
       const decayFactor = Math.max(0, 1 - elapsedMinutes / totalDurationMinutes);
       const remaining = administeredCorrection * decayFactor;
 
-      if (remaining > 0.01) {
-        totalActive += remaining;
+      if (remaining > 0.001) {
+        const roundedRemaining = Math.round(remaining * 100) / 100;
+        totalActive += roundedRemaining;
         details.push({
           recordId: r.id,
           time: r.time,
           originalCorrection: administeredCorrection,
-          activeRemaining: Math.round(remaining * 100) / 100,
+          activeRemaining: roundedRemaining,
+          elapsedHours,
         });
       }
     }

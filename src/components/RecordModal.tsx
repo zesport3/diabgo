@@ -19,7 +19,11 @@ import {
   Settings,
   CalculationResult,
 } from '../types';
-import { calculateDose, calculateEligibleActiveInsulin } from '../utils/calculator';
+import {
+  calculateDose,
+  calculateEligibleActiveInsulin,
+  getRecordTimestamp,
+} from '../utils/calculator';
 
 interface RecordModalProps {
   isOpen: boolean;
@@ -84,10 +88,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
 
   // Dynamic calculation of active insulin from previous records (including correction-only records)
   const activeInsulinInfo = useMemo(() => {
-    const [h, m] = time.split(':').map(Number);
-    const dateObj = new Date(date + 'T12:00:00');
-    dateObj.setHours(h || 0, m || 0, 0, 0);
-    const targetTimestamp = dateObj.getTime();
+    const targetTimestamp = getRecordTimestamp({ timestamp: 0, date, time });
 
     return calculateEligibleActiveInsulin(
       targetTimestamp,
@@ -214,10 +215,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
     }
 
     // Construct timestamp from date and time
-    const [h, m] = time.split(':').map(Number);
-    const dateObj = new Date(date + 'T12:00:00');
-    dateObj.setHours(h || 0, m || 0, 0, 0);
-    const targetTimestamp = dateObj.getTime();
+    const targetTimestamp = getRecordTimestamp({ timestamp: 0, date, time });
 
     // Run calculation engine
     const { result, missingParams: missing } = calculateDose({
@@ -289,10 +287,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
       return;
     }
 
-    const [h, m] = time.split(':').map(Number);
-    const dateObj = new Date(date + 'T12:00:00');
-    dateObj.setHours(h || 0, m || 0, 0, 0);
-    const timestamp = dateObj.getTime();
+    const timestamp = getRecordTimestamp({ timestamp: 0, date, time });
 
     // Always compute fresh calculation on save to guarantee active insulin is included
     const res = calculateDose({
@@ -563,14 +558,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                 <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 shrink-0">
                   <Syringe className="w-4 h-4" />
                 </div>
-                <div>
-                  <span className="font-bold block">
-                    Insulina Ativa: {activeInsulinInfo.totalActive} U
-                  </span>
-                  <span className="text-[10px] text-cyan-700/90 dark:text-cyan-300/80">
-                    Incluída a partir do registo de correção anterior (será deduzida na dose calculada).
-                  </span>
-                </div>
+                <span className="font-bold text-xs text-cyan-900 dark:text-cyan-100">
+                  Insulina Ativa: {activeInsulinInfo.totalActive.toString().replace('.', ',')} U
+                </span>
               </div>
               <span className="text-[10px] font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-100 dark:bg-cyan-900/60 px-2 py-0.5 rounded-full shrink-0">
                 Ativa
@@ -646,7 +636,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                   <span className="font-semibold">{calcResult.correctionInsulin} U</span>
                 </div>
                 <div className="flex justify-between text-cyan-700 dark:text-cyan-400">
-                  <span>Insulina Ativa Descontada (correções 3h):</span>
+                  <span>Insulina Ativa Descontada (correções {settings.insulinDurationHours || 3}h):</span>
                   <span className="font-semibold">-{calcResult.eligibleActiveInsulin} U</span>
                 </div>
               </div>

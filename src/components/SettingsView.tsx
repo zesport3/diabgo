@@ -566,7 +566,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 Regra Específica de Insulina Ativa (DiabGo)
               </div>
               <p className="leading-relaxed">
-                Na DiabGo, <strong>apenas a componente de correção</strong> dos registos anteriores dentro das {settings.insulinDurationHours} horas contribui para o desconto de insulina ativa no novo cálculo. A componente de hidratos de carbono não entra no desconto.
+                Na DiabGo, <strong>apenas a componente de correção</strong> dos registos anteriores dentro das {settings.insulinDurationHours} horas contribui para o desconto de insulina ativa no novo cálculo, decaindo proporcionalmente pelas horas decorridas (ex.: com 9 U de correção a 3h: após 1h restam 6 U, após 2h restam 3 U e após 3h restam 0 U). A componente de hidratos de carbono não entra no desconto.
               </p>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 italic pt-1">
                 Nota de segurança clínica: Esta regra personalizada deve ser validada com a tua equipa médica antes de ser utilizada para orientar administrações reais.

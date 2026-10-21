@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { DiabetesRecord, MEAL_LABELS } from '../types';
 import { getGlucoseRangeBadge } from '../utils/reports';
+import { calculateEligibleActiveInsulin } from '../utils/calculator';
 
 interface RecordHistoryProps {
   records: DiabetesRecord[];
@@ -175,18 +176,13 @@ export const RecordHistory: React.FC<RecordHistoryProps> = ({
 
                 let activeDiscount = record.activeInsulinDeducted || record.eligibleActiveInsulin || 0;
                 if (!activeDiscount && !record.isCorrectionOnly) {
-                  // Fallback check if immediate prior record was correction-only
-                  const priorRecords = records
-                    .filter((r) => r.id !== record.id && (record.timestamp - r.timestamp) >= 0)
-                    .sort((a, b) => b.timestamp - a.timestamp);
-                  const prior = priorRecords[0];
-                  if (
-                    prior &&
-                    (prior.isCorrectionOnly ||
-                      (prior.carbs === 0 && ((prior.correctionInsulin ?? 0) > 0 || (prior.administeredDose ?? 0) > 0)))
-                  ) {
-                    activeDiscount = prior.correctionInsulin || prior.administeredDose || prior.calculatedDose || 0;
-                  }
+                  const eligible = calculateEligibleActiveInsulin(
+                    record.timestamp,
+                    records.filter((r) => r.id !== record.id),
+                    3,
+                    record.id
+                  );
+                  activeDiscount = eligible.totalActive;
                 }
                 const isExpanded = !!expandedRecordIds[record.id];
 
