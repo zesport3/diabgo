@@ -110,6 +110,8 @@ export function calculateEligibleActiveInsulin(
 
   // Iterate over prior records to calculate proportional active correction insulin
   for (const r of priorRecords) {
+    if (r.isGlucoseOnly) continue;
+
     const isCorrectionOnly =
       r.isCorrectionOnly ||
       (r.carbs === 0 && ((r.correctionInsulin ?? 0) > 0 || (r.administeredDose ?? r.calculatedDose ?? 0) > 0));

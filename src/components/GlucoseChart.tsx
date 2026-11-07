@@ -459,7 +459,9 @@ export const GlucoseChart: React.FC<GlucoseChartProps> = ({
             <div className="p-2 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
               <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Hidratos</span>
               <span className="text-sm font-bold text-slate-900 dark:text-white">
-                {activePoint.isCorrectionOnly || (activePoint.carbs === 0 && activePoint.correctionInsulin > 0) ? (
+                {activePoint.isGlucoseOnly ? (
+                  <span className="text-teal-600 dark:text-teal-400 font-bold text-xs">Sem comer</span>
+                ) : activePoint.isCorrectionOnly || (activePoint.carbs === 0 && activePoint.correctionInsulin > 0) ? (
                   <span className="text-purple-600 dark:text-purple-400 font-bold text-xs">Correção</span>
                 ) : (
                   <>
@@ -472,7 +474,9 @@ export const GlucoseChart: React.FC<GlucoseChartProps> = ({
             <div className="p-2 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
               <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Dose Adm.</span>
               <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400">
-                {activePoint.status === 'nao_administrada'
+                {activePoint.isGlucoseOnly ? (
+                  <span className="text-slate-400 dark:text-slate-500 font-medium text-xs">Sem insulina</span>
+                ) : activePoint.status === 'nao_administrada'
                   ? '0 U'
                   : `${activePoint.administeredDose ?? activePoint.calculatedDose} U`}
               </span>

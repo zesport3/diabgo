@@ -210,7 +210,11 @@ export const RecordHistory: React.FC<RecordHistoryProps> = ({
                       {/* Direita: Quantidade de Hidratos de Carbono e Insulina Total */}
                       <div className="flex items-center gap-3 shrink-0">
                         {/* Hidratos de Carbono */}
-                        {record.isCorrectionOnly || (record.carbs === 0 && record.correctionInsulin > 0) ? (
+                        {record.isGlucoseOnly ? (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-900">
+                            Apenas Glicemia
+                          </span>
+                        ) : record.isCorrectionOnly || (record.carbs === 0 && record.correctionInsulin > 0) ? (
                           <span className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900">
                             Correção (0g)
                           </span>
@@ -222,7 +226,11 @@ export const RecordHistory: React.FC<RecordHistoryProps> = ({
 
                         {/* Insulina Total */}
                         <div className="flex items-center gap-2 min-w-[65px] justify-end">
-                          {isNotAdmin ? (
+                          {record.isGlucoseOnly ? (
+                            <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
+                              Sem insulina
+                            </span>
+                          ) : isNotAdmin ? (
                             <span className="text-xs font-medium text-slate-400 dark:text-slate-500 line-through">
                               0 U
                             </span>
@@ -265,35 +273,41 @@ export const RecordHistory: React.FC<RecordHistoryProps> = ({
                           )}
                         </div>
 
-                        {/* As 3 Insulinas: para os hidratos, de correcao e ativa */}
-                        <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-center shadow-2xs">
-                          <div className="flex flex-col">
-                            <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400">
-                              Ins. Hidratos
-                            </span>
-                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                              {record.carbInsulin ?? 0} U
-                            </span>
+                        {/* As 3 Insulinas ou Mensagem de Apenas Glicemia */}
+                        {record.isGlucoseOnly ? (
+                          <div className="p-2.5 rounded-xl bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-900/60 text-center text-xs text-teal-800 dark:text-teal-300 font-medium">
+                            Registo exclusivo da medição de glicemia (sem ingestão de hidratos e sem insulina).
                           </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-center shadow-2xs">
+                            <div className="flex flex-col">
+                              <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400">
+                                Ins. Hidratos
+                              </span>
+                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                {record.carbInsulin ?? 0} U
+                              </span>
+                            </div>
 
-                          <div className="flex flex-col border-x border-slate-200/60 dark:border-slate-700/60">
-                            <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400">
-                              Ins. Correção
-                            </span>
-                            <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
-                              {record.correctionInsulin ?? 0} U
-                            </span>
-                          </div>
+                            <div className="flex flex-col border-x border-slate-200/60 dark:border-slate-700/60">
+                              <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400">
+                                Ins. Correção
+                              </span>
+                              <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                                {record.correctionInsulin ?? 0} U
+                              </span>
+                            </div>
 
-                          <div className="flex flex-col">
-                            <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400">
-                              Ins. Ativa
-                            </span>
-                            <span className="text-xs font-bold text-cyan-600 dark:text-cyan-400">
-                              {activeDiscount > 0 ? `-${activeDiscount} U` : '0 U'}
-                            </span>
+                            <div className="flex flex-col">
+                              <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400">
+                                Ins. Ativa
+                              </span>
+                              <span className="text-xs font-bold text-cyan-600 dark:text-cyan-400">
+                                {activeDiscount > 0 ? `-${activeDiscount} U` : '0 U'}
+                              </span>
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         {/* Notas se existirem */}
                         {record.notes && (

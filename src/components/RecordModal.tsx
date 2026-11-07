@@ -11,6 +11,7 @@ import {
   Activity,
   Wheat,
   Syringe,
+  Droplet,
 } from 'lucide-react';
 import {
   DiabetesRecord,
@@ -66,9 +67,13 @@ export const RecordModal: React.FC<RecordModalProps> = ({
   const [carbs, setCarbs] = useState<string>(
     initialRecord && initialRecord.carbs > 0 ? String(initialRecord.carbs) : ''
   );
+  const [isGlucoseOnly, setIsGlucoseOnly] = useState<boolean>(
+    initialRecord ? !!initialRecord.isGlucoseOnly : false
+  );
   const [isCorrectionOnly, setIsCorrectionOnly] = useState<boolean>(
     initialRecord
-      ? !!(initialRecord.isCorrectionOnly || (initialRecord.carbs === 0 && initialRecord.correctionInsulin > 0))
+      ? !initialRecord.isGlucoseOnly &&
+        !!(initialRecord.isCorrectionOnly || (initialRecord.carbs === 0 && initialRecord.correctionInsulin > 0))
       : false
   );
   const [notes, setNotes] = useState<string>(
@@ -101,6 +106,11 @@ export const RecordModal: React.FC<RecordModalProps> = ({
   // If editing an existing record that already has calculated values
   useEffect(() => {
     if (initialRecord) {
+      setIsGlucoseOnly(!!initialRecord.isGlucoseOnly);
+      setIsCorrectionOnly(
+        !initialRecord.isGlucoseOnly &&
+        !!(initialRecord.isCorrectionOnly || (initialRecord.carbs === 0 && initialRecord.correctionInsulin > 0))
+      );
       setCalcResult({
         carbInsulin: initialRecord.carbInsulin,
         correctionInsulin: initialRecord.correctionInsulin,
@@ -116,6 +126,9 @@ export const RecordModal: React.FC<RecordModalProps> = ({
         explanation: [],
       });
       setCalcPerformed(true);
+    } else {
+      setIsGlucoseOnly(false);
+      setIsCorrectionOnly(false);
     }
   }, [initialRecord]);
 
@@ -146,7 +159,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
   const handleGlucoseBlur = () => {
     setIsGlucoseBlurred(true);
     const num = parseFloat(glucose);
-    if (!isNaN(num) && num > 0 && num < 70) {
+    if (!isNaN(num) && num > 0 && num < 70 && !isCorrectionOnly && !isGlucoseOnly) {
       // Só coloca os 12g de hidratos depois de colocar o valor da glicemia e seja inferior a 70
       setCarbs('12');
       setAutoSetHypoCarbs(true);
@@ -245,6 +258,49 @@ export const RecordModal: React.FC<RecordModalProps> = ({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError(null);
+
+    // Modo Apenas Glicemia: registar medição sem hidratos e sem insulina
+    if (isGlucoseOnly) {
+      if (!glucose.trim()) {
+        setValidationError('Por favor introduz o valor da glicemia para registar.');
+        return;
+      }
+      const numG = parseFloat(glucose);
+      if (isNaN(numG) || numG <= 0) {
+        setValidationError('Por favor introduz um valor de glicemia válido.');
+        return;
+      }
+      if (numG > 400) {
+        setValidationError('O valor máximo permitido de glicemia é 400 mg/dL.');
+        return;
+      }
+
+      const timestamp = getRecordTimestamp({ timestamp: 0, date, time });
+      const recordToSave: DiabetesRecord = {
+        id: initialRecord ? initialRecord.id : `rec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        timestamp,
+        date,
+        time,
+        meal,
+        glucose: numG,
+        carbs: 0,
+        calculatedDose: 0,
+        administeredDose: 0,
+        carbInsulin: 0,
+        correctionInsulin: 0,
+        activeInsulinDeducted: 0,
+        eligibleActiveInsulin: 0,
+        isCorrectionOnly: false,
+        isGlucoseOnly: true,
+        status: 'administrada',
+        notes: notes.trim() || undefined,
+        createdAt: initialRecord ? initialRecord.createdAt : Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      onSave(recordToSave);
+      return;
+    }
 
     let numCarbs = isCorrectionOnly ? 0 : (carbs.trim() === '' ? 0 : parseFloat(carbs));
     if (!isCorrectionOnly && carbs.trim() !== '' && (isNaN(numCarbs) || numCarbs < 0)) {
@@ -349,15 +405,27 @@ export const RecordModal: React.FC<RecordModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-500">
-              <Calculator className="w-4 h-4" />
+            <div className={`flex items-center justify-center w-8 h-8 rounded-xl transition ${
+              isGlucoseOnly
+                ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400'
+                : 'bg-cyan-500/10 text-cyan-500'
+            }`}>
+              {isGlucoseOnly ? <Droplet className="w-4 h-4" /> : <Calculator className="w-4 h-4" />}
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                {initialRecord ? 'Editar Registo' : 'Novo Registo'}
+                {initialRecord
+                  ? initialRecord.isGlucoseOnly
+                    ? 'Editar Medição de Glicemia'
+                    : 'Editar Registo'
+                  : isGlucoseOnly
+                  ? 'Novo Registo de Glicemia'
+                  : 'Novo Registo'}
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Calculadora de dose e registo diário
+                {isGlucoseOnly
+                  ? 'Apenas valor da glicemia (sem comer e sem insulina)'
+                  : 'Calculadora de dose e registo diário'}
               </p>
             </div>
           </div>
@@ -438,48 +506,107 @@ export const RecordModal: React.FC<RecordModalProps> = ({
             </div>
           </div>
 
-          {/* Opção: Apenas Correção */}
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/60 transition">
-            <div className="flex items-center gap-2.5">
-              <div
-                className={`p-2 rounded-xl transition ${
-                  isCorrectionOnly
-                    ? 'bg-purple-500 text-white shadow-xs'
-                    : 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300'
-                }`}
-              >
-                <Syringe className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                  Apenas Correção
-                </span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Dose corretiva sem ingestão de hidratos (0g HC)
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const next = !isCorrectionOnly;
-                setIsCorrectionOnly(next);
-                if (next) {
-                  setCarbs('');
-                }
-                setCalcPerformed(false);
-              }}
-              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
-                isCorrectionOnly ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-700'
+          {/* Opções Rápidas de Registo */}
+          <div className="space-y-2">
+            {/* Opção: Apenas Glicemia (Sem comer e sem insulina) */}
+            <div
+              className={`flex items-center justify-between p-3 rounded-2xl border transition ${
+                isGlucoseOnly
+                  ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-300 dark:border-teal-700/80 shadow-xs'
+                  : 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800'
               }`}
-              aria-label="Ativar apenas correção"
             >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition-transform ${
-                  isCorrectionOnly ? 'translate-x-6' : 'translate-x-1'
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`p-2 rounded-xl transition ${
+                    isGlucoseOnly
+                      ? 'bg-teal-600 text-white shadow-xs'
+                      : 'bg-teal-100 dark:bg-teal-900/50 text-teal-600 dark:text-teal-300'
+                  }`}
+                >
+                  <Droplet className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                    Apenas Glicemia
+                  </span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                    Sem comer e sem insulina (apenas medição)
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !isGlucoseOnly;
+                  setIsGlucoseOnly(next);
+                  if (next) {
+                    setIsCorrectionOnly(false);
+                    setCarbs('');
+                  }
+                  setCalcPerformed(false);
+                  setCalcResult(null);
+                  setValidationError(null);
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
+                  isGlucoseOnly ? 'bg-teal-600' : 'bg-slate-300 dark:bg-slate-700'
                 }`}
-              />
-            </button>
+                aria-label="Ativar apenas glicemia"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition-transform ${
+                    isGlucoseOnly ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Opção: Apenas Correção */}
+            {!isGlucoseOnly && (
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/60 transition">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`p-2 rounded-xl transition ${
+                      isCorrectionOnly
+                        ? 'bg-purple-500 text-white shadow-xs'
+                        : 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300'
+                    }`}
+                  >
+                    <Syringe className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                      Apenas Correção
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Dose corretiva de insulina sem comer (0g HC)
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !isCorrectionOnly;
+                    setIsCorrectionOnly(next);
+                    if (next) {
+                      setIsGlucoseOnly(false);
+                      setCarbs('');
+                    }
+                    setCalcPerformed(false);
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
+                    isCorrectionOnly ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                  aria-label="Ativar apenas correção"
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition-transform ${
+                      isCorrectionOnly ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Glucose and Carbs Inputs */}
@@ -519,40 +646,54 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                   inputMode="decimal"
                   step="any"
                   autoComplete="off"
-                  placeholder={isCorrectionOnly ? '0g (apenas correção)' : 'Ex: 40'}
+                  placeholder={
+                    isGlucoseOnly
+                      ? '0g (sem comer)'
+                      : isCorrectionOnly
+                      ? '0g (apenas correção)'
+                      : 'Ex: 40'
+                  }
                   min="0"
                   max="700"
-                  disabled={isCorrectionOnly}
-                  value={isCorrectionOnly ? '' : carbs}
+                  disabled={isCorrectionOnly || isGlucoseOnly}
+                  value={isCorrectionOnly || isGlucoseOnly ? '' : carbs}
                   onChange={(e) => handleCarbsChange(e.target.value)}
                   className={`w-full px-3 py-2.5 rounded-xl border font-mono text-base transition ${
-                    isCorrectionOnly
+                    isGlucoseOnly
+                      ? 'border-teal-200 dark:border-teal-900/60 bg-teal-50/50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-300 cursor-not-allowed select-none'
+                      : isCorrectionOnly
                       ? 'border-purple-200 dark:border-purple-900/60 bg-purple-50/50 dark:bg-purple-950/20 text-purple-700 dark:text-purple-300 cursor-not-allowed select-none'
                       : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500'
                   }`}
                 />
               </div>
               <span className="text-[10px] text-slate-400 block mt-0.5">
-                {isCorrectionOnly ? 'Fixado em 0g (correção)' : 'Máx: 700g'}
+                {isGlucoseOnly
+                  ? 'Fixado em 0g (sem comer)'
+                  : isCorrectionOnly
+                  ? 'Fixado em 0g (correção)'
+                  : 'Máx: 700g'}
               </span>
             </div>
           </div>
 
-          {/* Hypoglycemia Mandatory 12g Carbs Alert Banner (< 70 mg/dL) */}
+          {/* Hypoglycemia Alert Banner (< 70 mg/dL) */}
           {isGlucoseBlurred && glucose.trim() !== '' && !isNaN(parseFloat(glucose)) && parseFloat(glucose) < 70 && (
             <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 text-xs animate-in fade-in duration-200">
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div>
                 <span className="font-bold block">Glicemia abaixo de 70 mg/dL (Hipoglicemia)</span>
                 <span>
-                  É <strong>obrigatório ingerir 12g de hidratos de carbono rápidos</strong> (ex.: açúcar ou sumo). A dose de hidratos foi definida para 12g e não é administrada insulina de correção.
+                  {isGlucoseOnly
+                    ? 'Atenção: Trata a hipoglicemia imediatamente com 15g de hidratos de carbono rápidos (sumo ou açúcar) e reavalia a glicemia após 15 minutos.'
+                    : 'É obrigatório ingerir 12g de hidratos de carbono rápidos (ex.: açúcar ou sumo). A dose de hidratos foi definida para 12g e não é administrada insulina de correção.'}
                 </span>
               </div>
             </div>
           )}
 
           {/* Active Insulin Detected from Prior Correction Banner */}
-          {activeInsulinInfo.totalActive > 0 && (
+          {!isGlucoseOnly && activeInsulinInfo.totalActive > 0 && (
             <div className="flex items-center justify-between p-3 rounded-2xl bg-cyan-50/80 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800/70 text-cyan-900 dark:text-cyan-200 text-xs animate-in fade-in duration-200">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 shrink-0">
@@ -602,18 +743,29 @@ export const RecordModal: React.FC<RecordModalProps> = ({
             </div>
           </div>
 
-          {/* Calculate Button */}
-          <button
-            type="button"
-            onClick={handleCalculate}
-            className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 active:scale-[0.99] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-sm shadow-cyan-600/20 transition cursor-pointer"
-          >
-            <Calculator className="w-4 h-4" />
-            Calcular Insulina
-          </button>
+          {/* Calculate Button / Glucose-only info */}
+          {isGlucoseOnly ? (
+            <div className="p-3 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-900/60 text-xs text-teal-900 dark:text-teal-200 flex items-center gap-2.5 animate-in fade-in duration-150">
+              <div className="p-1 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 shrink-0">
+                <Droplet className="w-4 h-4" />
+              </div>
+              <span>
+                <strong>Modo Apenas Glicemia:</strong> Regista unicamente o valor da glicemia para o gráfico e histórico (sem hidratos e sem insulina).
+              </span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleCalculate}
+              className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 active:scale-[0.99] text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-sm shadow-cyan-600/20 transition cursor-pointer"
+            >
+              <Calculator className="w-4 h-4" />
+              Calcular Insulina
+            </button>
+          )}
 
           {/* Calculation Breakdown Section */}
-          {calcResult && (
+          {!isGlucoseOnly && calcResult && (
             <div className="p-3.5 rounded-2xl bg-cyan-50/70 dark:bg-[#07172E] border border-cyan-200 dark:border-cyan-900/50 flex flex-col gap-3 animate-in fade-in duration-200">
               <div className="flex items-center justify-between border-b border-cyan-200/80 dark:border-cyan-900/60 pb-2">
                 <span className="text-xs font-bold text-cyan-900 dark:text-cyan-300 flex items-center gap-1.5">
@@ -640,12 +792,8 @@ export const RecordModal: React.FC<RecordModalProps> = ({
                   <span className="font-semibold">-{calcResult.eligibleActiveInsulin} U</span>
                 </div>
               </div>
-
-
             </div>
           )}
-
-
 
           {/* Notes (Optional) */}
           <div>
@@ -654,7 +802,7 @@ export const RecordModal: React.FC<RecordModalProps> = ({
             </label>
             <input
               type="text"
-              placeholder="Ex: Exercício prévio, pizza, etc."
+              placeholder="Ex: Exercício prévio, pizza, medição em jejum, etc."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
@@ -665,9 +813,13 @@ export const RecordModal: React.FC<RecordModalProps> = ({
           <div className="flex items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
             <button
               type="submit"
-              className="flex-1 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 active:scale-[0.99] text-white font-bold text-sm shadow-md shadow-cyan-600/20 transition cursor-pointer"
+              className={`flex-1 py-3 rounded-xl active:scale-[0.99] text-white font-bold text-sm shadow-md transition cursor-pointer ${
+                isGlucoseOnly
+                  ? 'bg-teal-600 hover:bg-teal-700 shadow-teal-600/20'
+                  : 'bg-cyan-600 hover:bg-cyan-700 shadow-cyan-600/20'
+              }`}
             >
-              Guardar Registo
+              {isGlucoseOnly ? 'Guardar Glicemia' : 'Guardar Registo'}
             </button>
             <button
               type="button"

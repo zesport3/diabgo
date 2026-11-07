@@ -17,6 +17,7 @@ import {
   HelpCircle,
   Database,
   User,
+  FileText,
 } from 'lucide-react';
 import {
   Settings,
@@ -30,6 +31,7 @@ import {
 import { ThemeMode } from '../hooks/useTheme';
 import { exportBackup, validateBackupFile, mergeRecords, BackupValidationResult } from '../utils/backup';
 import { storage } from '../services/storage';
+import { exportSettingsReportToPDF } from '../utils/settingsPdfExport';
 
 interface SettingsViewProps {
   settings: Settings;
@@ -60,13 +62,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [importSummary, setImportSummary] = useState<BackupValidationResult | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  // Clinical Settings PDF Export Modal
+  const [isSettingsPdfModalOpen, setIsSettingsPdfModalOpen] = useState<boolean>(false);
+  const [patientEmail, setPatientEmail] = useState<string>('zenave@icloud.com');
+  const [patientName, setPatientName] = useState<string>('José Miguel Fernandes Nave');
+  const [rapidInsulinName, setRapidInsulinName] = useState<string>('Fiasp®');
+  const [doctorComments, setDoctorComments] = useState<string>('');
 
-  // Storage info
   const [storageInfo, setStorageInfo] = useState<{ count: number; indexedDBOk: boolean; estimatedSizeKb: number } | null>(null);
 
   React.useEffect(() => {
     storage.getStorageInfo().then(setStorageInfo);
   }, [records, settings]);
+
+  const handleExportSettingsPDF = () => {
+    exportSettingsReportToPDF(settings, {
+      userEmail: patientEmail,
+      patientName: patientName,
+      diabetesType: 'Tipo 1',
+      rapidInsulinName: rapidInsulinName,
+      comments: doctorComments,
+    });
+    setIsSettingsPdfModalOpen(false);
+    showSuccess('Relatório médico de configurações descarregado com sucesso!');
+  };
 
   const showSuccess = (msg: string) => {
     setSaveSuccessMsg(msg);
@@ -212,7 +231,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   return (
     <div className="space-y-4 pb-12">
       {/* Settings Sub-Tabs Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Sliders className="w-5 h-5 text-cyan-500" />
@@ -222,6 +241,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             Parâmetros clínicos, aparência e dados
           </p>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsSettingsPdfModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white font-semibold text-xs shadow-md shadow-cyan-600/20 transition cursor-pointer shrink-0"
+          title="Tirar relatório das configurações para o médico ver"
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Relatório Médico</span>
+        </button>
       </div>
 
       {/* Success Notification */}
@@ -572,6 +601,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 Nota de segurança clínica: Esta regra personalizada deve ser validada com a tua equipa médica antes de ser utilizada para orientar administrações reais.
               </p>
             </div>
+
+            {/* Doctor Settings PDF Report Card */}
+            <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-cyan-500 text-white shadow-xs shrink-0">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                    Relatório das Configurações para o Médico
+                  </h4>
+                  <p className="text-slate-600 dark:text-slate-400 mt-0.5">
+                    Gera um documento PDF com a folha de definições da terapia (rácios HC, fatores FSE, glicemia-alvo, tempo de ação e incrementos) para apresentar na consulta.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSettingsPdfModalOpen(true)}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 active:scale-95 text-white font-bold transition flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm shadow-cyan-600/20"
+              >
+                <Download className="w-4 h-4" />
+                <span>Exportar Relatório PDF</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -834,6 +888,127 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           App criada por <strong className="font-semibold text-slate-700 dark:text-slate-200">José Miguel Fernandes Nave</strong>
         </p>
       </div>
+
+      {/* Modal: Exportar Relatório de Configurações para o Médico */}
+      {isSettingsPdfModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white dark:bg-[#0B192C] shadow-2xl border border-slate-200/80 dark:border-slate-800 p-5 flex flex-col gap-4 text-slate-900 dark:text-slate-100 animate-in slide-in-from-bottom duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Relatório das Configurações Clínicas
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Documento PDF formatado para apresentar ao médico / endocrinologista
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSettingsPdfModalOpen(false)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Explanation box */}
+            <div className="p-3.5 rounded-2xl bg-cyan-50/70 dark:bg-[#07172E] border border-cyan-200/80 dark:border-cyan-900/60 text-xs text-slate-700 dark:text-slate-300 space-y-1.5">
+              <p className="font-semibold text-cyan-900 dark:text-cyan-200">
+                O que será incluído neste relatório?
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
+                <li><strong>Glicemia-Alvo</strong>: modo (dia inteiro, refeição ou blocos horários) e valores em mg/dL.</li>
+                <li><strong>Rácio de HC</strong>: gramas de hidratos de carbono por unidade de insulina (g/U).</li>
+                <li><strong>Fator de Correção (FSE / ISF)</strong>: sensibilidade à insulina (mg/dL por 1 U).</li>
+                <li><strong>Insulina de Ação Rápida</strong>: tipo de insulina e tempo de ação ({settings.insulinDurationHours}h).</li>
+                <li><strong>Regra DiabGo</strong>: decaimento de insulina ativa e incrementos de {settings.doseRounding} U.</li>
+              </ul>
+            </div>
+
+            {/* Form Fields for Customizing PDF */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Nome do Utente / Paciente
+                  </label>
+                  <input
+                    type="text"
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                    placeholder="Ex: José Miguel Fernandes Nave"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Email de Contacto
+                  </label>
+                  <input
+                    type="email"
+                    value={patientEmail}
+                    onChange={(e) => setPatientEmail(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                    placeholder="Ex: zenave@icloud.com"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Insulina de Ação Rápida Utilizada
+                </label>
+                <input
+                  type="text"
+                  value={rapidInsulinName}
+                  onChange={(e) => setRapidInsulinName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                  placeholder="Ex: Fiasp®, NovoRapid®, Humalog®, etc."
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Notas / Observações Médicas (Opcional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={doctorComments}
+                  onChange={(e) => setDoctorComments(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+                  placeholder="Ex: Ajuste de rácio de HC ao pequeno-almoço discutido na consulta..."
+                />
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={handleExportSettingsPDF}
+                className="flex-1 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 active:scale-[0.99] text-white font-bold text-sm shadow-md shadow-cyan-600/20 transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Descarregar PDF para o Médico</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSettingsPdfModalOpen(false)}
+                className="px-5 py-3 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-sm transition"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

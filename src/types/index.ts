@@ -49,6 +49,7 @@ export interface DiabetesRecord {
   activeInsulinDeducted: number; // units deducted
   eligibleActiveInsulin: number; // eligible units from previous corrections
   isCorrectionOnly?: boolean; // Record for correction only (no carbs)
+  isGlucoseOnly?: boolean; // Record for glucose only (no carbs, no insulin)
   status: DoseStatus;
   notes?: string;
   createdAt: number;
